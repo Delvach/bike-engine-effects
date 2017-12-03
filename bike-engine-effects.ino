@@ -184,6 +184,14 @@ int overrideSetting_colorHue[2]     = {0, 0};
 int overrideSetting_speed[2]        = {0, 0};
 int overrideSetting_brightness[2]   = {0, 0};
 
+int xmas_color_curr[3] = {0, 0, 0};
+int xmas_color_num = 3;
+int xmas_hue_red = 0;
+int xmas_hue_green = 115;
+
+unsigned long xmas_last_changed[3] = {0, 0, 0};
+unsigned long xmas_change_interval[3] = {750, 500, 350};
+
 //
 int audio_wav_map[][2] = {
   {AUDIO_HORN_FOG1, AUDIO_HORN_BIKE1},
@@ -976,6 +984,7 @@ void loop() {
         break;
 
       case 1: // Turbine (default)
+      case 4: // xmas
         runEngine();
 
         if (_engineShuttingDown) {
@@ -991,7 +1000,11 @@ void loop() {
         }
 
         if (pulse_active) {
-          updatePulse();
+          if (inXmasMode()) {
+            updateXmasPole();
+          } else {
+            updatePulse();
+          }
         }
 
         updateBoost();
@@ -1018,6 +1031,10 @@ void loop() {
 
 int inCommuterMode() {
   return mode == 9 ? 1 : 0;
+}
+
+int inXmasMode() {
+  return mode == 4 ? 1 : 0;
 }
 
 void setCommuterLights() {
@@ -2343,7 +2360,11 @@ void setPulseRingToZero(int isLeft, int idx) {
 
 void displayPulseRing(int isLeft, int idx, int travelComplete) {
   uint32_t color;
-  color = getColorByVal(isLeft, travelComplete);
+  if (inXmasMode()) {
+    color = getXmasColorVal(isLeft, idx, travelComplete);
+  } else {
+    color = getColorByVal(isLeft, travelComplete);
+  }
   lensFillIdx(isLeft, idx, color);
   if (isLeft && effect_option_sync) {
     lensFillIdx(0, idx, color);
@@ -3100,7 +3121,9 @@ void flickerThrustLight(int strength) {
   ring.show();
 }
 
-
+//uint32_t getThrusterHue() {
+//  return 
+//}
 
 /*
    Get flickering color light color
@@ -3357,7 +3380,7 @@ void triggerWiiButtonByIndex(int idx) {
     triggerDefaultWiiButtonByIndex(idx);
   }
   switch (mode) {
-    case 1:
+    case 1: case 4: // xmas
       //        triggerEngineWiiButtonByIndex(idx);
       break;
     case 2:
@@ -3575,6 +3598,12 @@ uint32_t getColorByVal(int idx, int val) {
   if (audio_effect_overrideLights) {
     return getColorFromAudioVal(idx, val);
   }
+
+  // xmas
+  //  if (inXmasMode()) {
+  //    return getXmasColorVal(idx, 0, val);
+  //  }
+
   switch (effect_color_modes[idx]) {
     case 0:
       return getColorFromJoysticksVal(val);
@@ -3648,6 +3677,49 @@ uint32_t getPoliceColorByVal(int idx, int val) {
     return eye_left.Color(0, 0, val);
   }
 }
+
+
+void updateXmasColorCycle() {
+
+  //xmas_last_changed[3] = {0,0,0};
+  //unsigned long xmas_change_interval[3]
+
+  for (int ringIdx = 0; ringIdx < 3; ringIdx++) {
+
+
+
+    if ((millis() - xmas_last_changed[ringIdx]) >= xmas_change_interval[ringIdx]) {
+      if (xmas_color_curr[ringIdx]++ >= xmas_color_num) {
+        xmas_color_curr[ringIdx] = 0;
+      }
+      xmas_last_changed[ringIdx] = millis();
+    }
+  }
+}
+
+// Co Co Code for xmas
+uint32_t getXmasColor(int isLeft) {
+  unsigned char red, green, blue;
+  hsv2rgb(
+    xmas_hue_red,
+    effect_color_cycle_sat_currents[isLeft],
+    127,
+    &red, &green, &blue, effect_color_cycle_maxBrightness);
+  return eye_left.Color(red, green, blue);
+}
+
+
+uint32_t getXmasColorVal(int isLeft, int ringIdx, int val) {
+  updateXmasColorCycle();
+  unsigned char red, green, blue;
+  hsv2rgb(
+    xmas_color_curr[ringIdx] == 1 ? xmas_hue_green : xmas_hue_red,
+    xmas_color_curr[ringIdx] == 0 ? 0 : 255,
+    val,
+    &red, &green, &blue, effect_color_cycle_maxBrightness);
+  return eye_left.Color(red, green, blue);
+}
+
 
 uint32_t getWhite() {
   unsigned char red, green, blue;
@@ -4277,7 +4349,7 @@ void triggerControllerSwitch(int index, byte switchState, byte isFirstRun) {
   switch (index) {
     case 0: // Throttle
       switch (mode) {
-        case 1:
+        case 1: case 9: case 4:
           if (!isFirstRun) {
             if (switchState) {
               Serial.println("Start engine");
@@ -4753,6 +4825,9 @@ void updateSpinner() {
 }
 
 
+void updateXmasPole() {
+  
+}
 
 void updatePulse() {
   unsigned char red, green, blue;
@@ -4990,6 +5065,10 @@ void lcdShowBrightness() {
 
 void lcdShowColorMode(int isLeft) {
   lcdSetPosition(1, isLeft ? 0 : 13);
+  if (inXmasMode()) {
+    Serial2.write("Ho");
+    return;
+  }
   switch (effect_color_modes[isLeft]) {
     case 0:
       Serial2.write("Man");
@@ -5095,7 +5174,7 @@ void initModeBehavior(uint16_t init_mode) {
     case 0: // Disabled
       break;
 
-    case 1: // Turbine (default)
+    case 1: case 4: // Turbine (default), xmas
       playEngineHum();
 
       //      lcdSetMessage(1);
