@@ -1,3 +1,4 @@
+#include "RF24.h"
 #include <wavTrigger.h> // WAV trigger is used for audio effects
 #include <Adafruit_NeoPixel.h> // Neopixel LED strip/ring/pixel control
 #include <WiiClassy.h>  //include the WiiClassy Libary, one serial interface for two joysticks and 15 buttons
@@ -151,6 +152,8 @@
 #define NEO_EYES_LEFT 11 // Left circular LED array
 #define NEO_EYES_RIGHT 10 // Right circular LED array
 
+RF24 radio(6, 7);
+
 // Timing events for Pod Racer sequence
 const unsigned long racer_audio_startup_duration = 11935;
 const unsigned long racer_audio_startup_step_0 = 832;
@@ -188,6 +191,9 @@ int xmas_color_curr[3] = {0, 0, 0};
 int xmas_color_num = 3;
 int xmas_hue_red = 0;
 int xmas_hue_green = 115;
+
+unsigned long transmit_last_update;
+unsigned long transmit_interval = 20;
 
 unsigned long xmas_last_changed[3] = {0, 0, 0};
 unsigned long xmas_change_interval[3] = {750, 500, 350};
@@ -838,8 +844,41 @@ int effect_color_cycle_sat_currents[2] = {255, 255};
 int effect_color_cycle_val_currents[2] = {127, 127};
 //int effect_color_cycle_maxBrightnesses[2] = {127, 127};
 
+// Addresses for radio transmission & reception
+byte addresses[][6] = {"1Mast", "2Left", "3Rght"};
+
+// Data structure to send
+struct transmitDataStructure {
+  byte idx = 0;
+  byte pos = 0;
+  byte mode = 4;
+  byte behavior = 0; // Which set of behaviors to follow
+
+  byte right[7];  // 7 Channels of 0-255
+  byte left[7];   // 7 Channels of 0-255
+
+  byte red   = 0;
+  byte green = 0;
+  byte blue  = 0;
+
+} lightData;
+
 
 void setup() {
+
+  radio.begin();
+  radio.setChannel(108);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setRetries(10, 15);
+  radio.setAutoAck(false);
+  radio.setCRCLength(RF24_CRC_16);
+
+  radio.openWritingPipe(addresses[1]);
+  radio.openReadingPipe(1, addresses[0]);
+
+  radio.startListening();
+
+  delay(100);
 
   classy.init();  //start classy library
   delay(100);
@@ -1027,6 +1066,28 @@ void loop() {
 
   } // end default non-sequence behavior
 
+  transmitData();
+}
+
+void transmitData() {
+  if (millis() >= (transmit_last_update + transmit_interval)) {
+    transmit_last_update = millis();
+    radio.stopListening();
+    radio.openWritingPipe(addresses[1]);
+//    radio.write(&lightData, sizeof(lightData));
+    radio.startListening();
+    prettyPrintSoundData(left);
+  }
+}
+
+void prettyPrintSoundData(int sound[8]) {
+  for (int i = 0; i < 8; i++) {
+    if (i == 7) {
+      Serial.println(sound[i]);
+    } else {
+      Serial.print(sound[i]); Serial.print(',');
+    }
+  }
 }
 
 int inCommuterMode() {
@@ -3122,7 +3183,7 @@ void flickerThrustLight(int strength) {
 }
 
 //uint32_t getThrusterHue() {
-//  return 
+//  return
 //}
 
 /*
@@ -4826,7 +4887,7 @@ void updateSpinner() {
 
 
 void updateXmasPole() {
-  
+
 }
 
 void updatePulse() {
@@ -5906,8 +5967,21 @@ void readSpectrum(void) {
       digitalWrite(SPECTRUMSHIELD_PIN_STROBE, HIGH); // reset the strobe pin
     }
     //  displaySpectrumData();
+    updateTransmitDataWithSound();
   }
 }
+
+/*
+   Add spectrum analyzed sound data to transmission data
+*/
+void updateTransmitDataWithSound() {
+  for (int band = 0; band < 7; band++) {
+    lightData.left[band] = map(left[band], 0, 1023, 0, 255);
+    lightData.right[band] = map(right[band], 0, 1023, 0, 255);
+  }
+}
+
+
 
 int getBandValue(int analogValue) {
   return (analogValue >= MIN_AUDIO_INPUT) ? map(analogValue, MIN_AUDIO_INPUT, 1023, 0, 1023) : 0;
