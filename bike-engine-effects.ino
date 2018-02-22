@@ -141,10 +141,10 @@
 
 
 // Pin definitions for Sparkfun spectrum analyzer board
-#define SPECTRUMSHIELD_PIN_STROBE 45
-#define SPECTRUMSHIELD_PIN_RESET 47
-#define SPECTRUMSHIELD_PIN_LEFT 6 //analog
-#define SPECTRUMSHIELD_PIN_RIGHT 7 //analog
+#define SPECTRUMSHIELD_PIN_STROBE 47
+#define SPECTRUMSHIELD_PIN_RESET 49
+#define SPECTRUMSHIELD_PIN_LEFT A6 //analog
+#define SPECTRUMSHIELD_PIN_RIGHT A7 //analog
 
 // Pin definitions for Neopixel lights
 #define NEOCIRCLE_PIN 8 // Rear thruster
@@ -152,7 +152,7 @@
 #define NEO_EYES_LEFT 11 // Left circular LED array
 #define NEO_EYES_RIGHT 10 // Right circular LED array
 
-RF24 radio(6, 7);
+RF24 radio(7, 8);
 
 // Timing events for Pod Racer sequence
 const unsigned long racer_audio_startup_duration = 11935;
@@ -965,19 +965,21 @@ void setup() {
 
   delay(5);
 
-  wTrig.trackLoop(AUDIO_LOOP_CHOP1, 1);
-  wTrig.trackLoop(AUDIO_LOOP_CHOP2, 1);
-  wTrig.trackLoop(AUDIO_LOOP_CHOP3, 1);
-  wTrig.trackLoop(AUDIO_LOOP_CHOP4, 1);
+  if (false) {
+    wTrig.trackLoop(AUDIO_LOOP_CHOP1, 1);
+    wTrig.trackLoop(AUDIO_LOOP_CHOP2, 1);
+    wTrig.trackLoop(AUDIO_LOOP_CHOP3, 1);
+    wTrig.trackLoop(AUDIO_LOOP_CHOP4, 1);
 
-  wTrig.trackLoop(AUDIO_LOOP_STEADY_JET, 1);
-  wTrig.trackLoop(AUDIO_LOOP_STEADY1, 1);
-  wTrig.trackLoop(AUDIO_LOOP_STEADY2, 1);
-  wTrig.trackLoop(AUDIO_LOOP_STEADY3, 1);
-  wTrig.trackLoop(AUDIO_LOOP_STEADY4, 1);
+    wTrig.trackLoop(AUDIO_LOOP_STEADY_JET, 1);
+    wTrig.trackLoop(AUDIO_LOOP_STEADY1, 1);
+    wTrig.trackLoop(AUDIO_LOOP_STEADY2, 1);
+    wTrig.trackLoop(AUDIO_LOOP_STEADY3, 1);
+    wTrig.trackLoop(AUDIO_LOOP_STEADY4, 1);
 
-  wTrig.trackLoop(AUDIO_LOOP_VARIABLE1, 1);
-  wTrig.trackLoop(AUDIO_LOOP_VARIABLE2, 1);
+    wTrig.trackLoop(AUDIO_LOOP_VARIABLE1, 1);
+    wTrig.trackLoop(AUDIO_LOOP_VARIABLE2, 1);
+  }
 
   delay(100);
 
@@ -1066,7 +1068,10 @@ void loop() {
 
   } // end default non-sequence behavior
 
-  transmitData();
+  //  transmitData();
+//  if (receiveStripData()) {
+//    Serial.println("Got data");
+//  }
 }
 
 void transmitData() {
@@ -1076,10 +1081,20 @@ void transmitData() {
     radio.openWritingPipe(addresses[1]);
 //    radio.write(&lightData, sizeof(lightData));
     radio.startListening();
-    prettyPrintSoundData(left);
+    //    prettyPrintSoundData(left);
   }
 }
 
+bool receiveStripData() {
+  if (radio.available()) {
+    while (radio.available()) {
+      radio.read(&lightData, sizeof(lightData));
+    }
+    return 1;
+  } else {
+    return 0;
+  }
+}
 void prettyPrintSoundData(int sound[8]) {
   for (int i = 0; i < 8; i++) {
     if (i == 7) {
@@ -5966,7 +5981,7 @@ void readSpectrum(void) {
       right[band] = getBandValue(analogRead(SPECTRUMSHIELD_PIN_RIGHT)); // store right band reading
       digitalWrite(SPECTRUMSHIELD_PIN_STROBE, HIGH); // reset the strobe pin
     }
-    //  displaySpectrumData();
+    displaySpectrumData();
     updateTransmitDataWithSound();
   }
 }
