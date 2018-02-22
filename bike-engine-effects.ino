@@ -140,10 +140,10 @@
 
 
 // Pin definitions for Sparkfun spectrum analyzer board
-#define SPECTRUMSHIELD_PIN_STROBE 45
-#define SPECTRUMSHIELD_PIN_RESET 47
-#define SPECTRUMSHIELD_PIN_LEFT 6 //analog
-#define SPECTRUMSHIELD_PIN_RIGHT 7 //analog
+#define SPECTRUMSHIELD_PIN_STROBE 47
+#define SPECTRUMSHIELD_PIN_RESET 49
+#define SPECTRUMSHIELD_PIN_LEFT A6 //analog
+#define SPECTRUMSHIELD_PIN_RIGHT A7 //analog
 
 // Pin definitions for Neopixel lights
 #define NEOCIRCLE_PIN 8 // Rear thruster
